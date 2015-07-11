@@ -32,4 +32,4 @@ Then for clustering
     //loads clusters parameter with set of points
     dbscan.ComputeClusterDbscan(allPoints: featureData, epsilon: .01, minPts: 10, clusters: out clusters);
 
-
+Related article that I wrote for DBSCAN is here : http://www.yzuzun.com/2015/07/dbscan-clustering-algorithm-and-c-implementation/
