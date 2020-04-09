@@ -1,7 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
+using DbscanImplementation;
 
-namespace DbscanImplementation
+namespace DbscanDemo
 {
     class Program
     {
