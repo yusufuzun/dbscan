@@ -5,6 +5,10 @@ It is a small project that I implemented DBSCAN Clustering algorithm in C#.
 
 For using this you only need to define your own dataset class and create DbscanAlgorithm class to perform clustering. After that only call the ComputeClusterDbscan with desired clustering parameter.
 
+Note: 
+--------
+It is same code with the v1 tag (v1 is dotnet framework version). It is only updated for dotnet core.
+
 Example: 
 --------
 Your dataset items (preference, feature, vector, row, etc.):
@@ -31,5 +35,3 @@ Then for clustering
     
     //loads clusters parameter with set of points
     dbscan.ComputeClusterDbscan(allPoints: featureData, epsilon: .01, minPts: 10, clusters: out clusters);
-
-Related article that I wrote for DBSCAN is here : http://www.yzuzun.com/2015/07/dbscan-clustering-algorithm-and-c-implementation/
