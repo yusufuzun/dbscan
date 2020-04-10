@@ -1,18 +1,22 @@
-
 namespace DbscanImplementation
 {
-    public class DbscanPoint<T>
+    /// <summary>
+    /// Algorithm point definition
+    /// </summary>
+    /// <typeparam name="TFeature">Feature data contribute into algorithm</typeparam>
+    public class DbscanPoint<TFeature>
     {
-        public bool IsVisited;
-        public T ClusterPoint;
-        public int ClusterId;
+        public bool IsVisited { get; internal set; }
 
-        public DbscanPoint(T x)
+        public TFeature Feature { get; internal set; }
+
+        public int ClusterId { get; internal set; }
+
+        public DbscanPoint(TFeature feature)
         {
-            ClusterPoint = x;
+            Feature = feature;
             IsVisited = false;
             ClusterId = (int)ClusterIds.Unclassified;
         }
-
     }
 }

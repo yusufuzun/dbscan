@@ -1,102 +1,127 @@
 using System;
-using System.Collections.Generic;
 using System.Linq;
 
 namespace DbscanImplementation
 {
     /// <summary>
-    /// DBSCAN algorithm class
+    /// DBSCAN algorithm implementation type
     /// </summary>
-    /// <typeparam name="T">Takes dataset item row (features, preferences, vector) type</typeparam>
-    public class DbscanAlgorithm<T> where T : DatasetItemBase
+    /// <typeparam name="TFeature">Takes dataset item row (features, preferences, vector)</typeparam>
+    public class DbscanAlgorithm<TFeature>
     {
-        private readonly Func<T, T, double> _metricFunc;
+        /// <summary>
+        /// distance calculation metric function between two feature
+        /// </summary>
+        public readonly Func<TFeature, TFeature, double> MetricFunction;
 
         /// <summary>
-        /// Takes metric function to compute distances between dataset items T
+        /// Curried Function that checking two feature as neighbor 
+        /// </summary>
+        public readonly Func<TFeature, double, Func<DbscanPoint<TFeature>, bool>> RegionQueryPredicate;
+
+        /// <summary>
+        /// Takes metric function to compute distances between two TFeature
         /// </summary>
         /// <param name="metricFunc"></param>
-        public DbscanAlgorithm(Func<T, T, double> metricFunc)
+        public DbscanAlgorithm(Func<TFeature, TFeature, double> metricFunc)
         {
-            _metricFunc = metricFunc;
+            MetricFunction = metricFunc;
+
+            RegionQueryPredicate =
+                (mainFeature, epsilon) => relatedPoint => MetricFunction(mainFeature, relatedPoint.Feature) <= epsilon;
         }
 
         /// <summary>
         /// Performs the DBSCAN clustering algorithm.
         /// </summary>
-        /// <param name="allPoints">Dataset</param>
+        /// <param name="allPoints">feature set</param>
         /// <param name="epsilon">Desired region ball radius</param>
-        /// <param name="minPts">Minimum number of points to be in a region</param>
-        /// <param name="clusters">returns sets of clusters, renew the parameter</param>
-        public void ComputeClusterDbscan(T[] allPoints, double epsilon, int minPts, out HashSet<T[]> clusters)
+        /// <param name="minimumPoints">Minimum number of points to be in a region</param>
+        /// <returns>Overall result of cluster compute operation</returns>
+        public DbscanResult<TFeature> ComputeClusterDbscan(TFeature[] allPoints, double epsilon, int minimumPoints)
         {
-            DbscanPoint<T>[] allPointsDbscan = allPoints.Select(x => new DbscanPoint<T>(x)).ToArray();
+            var allPointsDbscan = allPoints.Select(x => new DbscanPoint<TFeature>(x)).ToArray();
+
             int clusterId = 0;
+
             for (int i = 0; i < allPointsDbscan.Length; i++)
             {
-                DbscanPoint<T> p = allPointsDbscan[i];
-                if (p.IsVisited)
-                    continue;
-                p.IsVisited = true;
+                var lookupPoint = allPointsDbscan[i];
 
-                DbscanPoint<T>[] neighborPts = null;
-                RegionQuery(allPointsDbscan, p.ClusterPoint, epsilon, out neighborPts);
-                if (neighborPts.Length < minPts)
-                    p.ClusterId = (int)ClusterIds.Noise;
+                if (lookupPoint.IsVisited)
+                {
+                    continue;
+                }
+
+                lookupPoint.IsVisited = true;
+
+                var neighborPoints = RegionQuery(allPointsDbscan, lookupPoint.Feature, epsilon);
+
+                if (neighborPoints.Length < minimumPoints)
+                {
+                    lookupPoint.ClusterId = (int)ClusterIds.Noise;
+                }
                 else
                 {
                     clusterId++;
-                    ExpandCluster(allPointsDbscan, p, neighborPts, clusterId, epsilon, minPts);
+
+                    lookupPoint.ClusterId = clusterId;
+
+                    neighborPoints = ExpandCluster(allPointsDbscan, neighborPoints, clusterId, epsilon, minimumPoints);
                 }
             }
-            clusters = new HashSet<T[]>(
-                allPointsDbscan
-                    .Where(x => x.ClusterId > 0)
-                    .GroupBy(x => x.ClusterId)
-                    .Select(x => x.Select(y => y.ClusterPoint).ToArray())
-                );
+
+            return new DbscanResult<TFeature>(allPointsDbscan);
         }
 
         /// <summary>
-        /// 
+        /// Checks current cluster for expanding it
         /// </summary>
         /// <param name="allPoints">Dataset</param>
-        /// <param name="point">point to be in a cluster</param>
-        /// <param name="neighborPts">other points in same region with point parameter</param>
+        /// <param name="neighborPoints">other points in same region</param>
         /// <param name="clusterId">given clusterId</param>
-        /// <param name="epsilon">Desired region ball range</param>
-        /// <param name="minPts">Minimum number of points to be in a region</param>
-        private void ExpandCluster(DbscanPoint<T>[] allPoints, DbscanPoint<T> point, DbscanPoint<T>[] neighborPts, int clusterId, double epsilon, int minPts)
+        /// <param name="epsilon">Desired region ball radius</param>
+        /// <param name="minimumPoints">Minimum number of points to be in a region</param>
+        /// <returns>expanded neighbor points</returns>
+        private DbscanPoint<TFeature>[] ExpandCluster(
+            DbscanPoint<TFeature>[] allPoints, DbscanPoint<TFeature>[] neighborPoints,
+            int clusterId, double epsilon, int minimumPoints)
         {
-            point.ClusterId = clusterId;
-            for (int i = 0; i < neighborPts.Length; i++)
+            for (int i = 0; i < neighborPoints.Length; i++)
             {
-                DbscanPoint<T> pn = neighborPts[i];
-                if (!pn.IsVisited)
+                var neighborPoint = neighborPoints[i];
+
+                if (!neighborPoint.IsVisited)
                 {
-                    pn.IsVisited = true;
-                    DbscanPoint<T>[] neighborPts2 = null;
-                    RegionQuery(allPoints, pn.ClusterPoint, epsilon, out neighborPts2);
-                    if (neighborPts2.Length >= minPts)
+                    neighborPoint.IsVisited = true;
+
+                    var otherNeighborPoints = RegionQuery(allPoints, neighborPoint.Feature, epsilon);
+
+                    if (otherNeighborPoints.Length >= minimumPoints)
                     {
-                        neighborPts = neighborPts.Union(neighborPts2).ToArray();
+                        neighborPoints = neighborPoints.Union(otherNeighborPoints).ToArray();
                     }
                 }
-                if (pn.ClusterId == (int)ClusterIds.Unclassified)
-                    pn.ClusterId = clusterId;
+
+                if (neighborPoint.ClusterId == (int)ClusterIds.Unclassified)
+                {
+                    neighborPoint.ClusterId = clusterId;
+                }
             }
+
+            return neighborPoints;
         }
 
         /// <summary>
         /// Checks and searchs neighbor points for given point
         /// </summary>
-        /// <param name="allPoints">Dataset</param>
-        /// <param name="point">centered point to be searched neighbors</param>
-        /// <param name="epsilon">radius of center point</param>
-        /// <param name="neighborPts">result neighbors</param>
-        private void RegionQuery(DbscanPoint<T>[] allPoints, T point, double epsilon, out DbscanPoint<T>[] neighborPts)
+        /// <param name="allPoints">Dbscan points converted from feature set</param>
+        /// <param name="mainFeature">Focused feature to be searched neighbors</param>
+        /// <param name="epsilon">Desired region ball radius</param>
+        /// <returns>Calculated neighbor points</returns>
+        private DbscanPoint<TFeature>[] RegionQuery(DbscanPoint<TFeature>[] allPoints, TFeature mainFeature, double epsilon)
         {
-            neighborPts = allPoints.Where(x => _metricFunc(point, x.ClusterPoint) <= epsilon).ToArray();
+            return allPoints.Where(RegionQueryPredicate(mainFeature, epsilon)).ToArray();
         }
     }
 }

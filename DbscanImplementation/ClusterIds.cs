@@ -1,4 +1,3 @@
-
 namespace DbscanImplementation
 {
     public enum ClusterIds
