@@ -1,24 +1,20 @@
 # DBSCAN
 DBSCAN Clustering Algorithm C# Implementation
 
-It is a small project that I implemented DBSCAN Clustering algorithm in C#.
+It is a small project that implements DBSCAN Clustering algorithm in C# and dotnet-core.
 
 For using this you only need to define your own dataset class and create DbscanAlgorithm class to perform clustering. After that only call the ComputeClusterDbscan with desired clustering parameter.
-
-Note: 
---------
-It is same code with the v1 tag (v1 is dotnet framework version). It is only updated for dotnet core.
 
 Example: 
 --------
 Your dataset items (preference, feature, vector, row, etc.):
 
-    public class MyCustomDatasetItem : DatasetItemBase
+    public class MyCustomFeature
     {
         public double X;
         public double Y;
     
-        public MyCustomDatasetItem(double x, double y)
+        public MyCustomFeature(double x, double y)
         {
             X = x;
             Y = y;
@@ -27,11 +23,16 @@ Your dataset items (preference, feature, vector, row, etc.):
 
 Then for clustering
 
-    MyCustomDatasetItem[] featureData = _clusterRepository.GetPointsToBeClustered();
-    HashSet<MyCustomDatasetItem[]> clusters;
+    MyCustomFeature[] featureData = _clusterRepository.GetPointsToBeClustered();
     
-    //set the metric function for clustering distance computation.
-    var dbscan = new DbscanAlgorithm<MyCustomDatasetItem>((x, y) => Math.Sqrt(((x.X - y.X) * (x.X - y.X)) + ((x.Y - y.Y) * (x.Y - y.Y))));
+    //INFO: applied euclidean distance as metric calculation function
+    var dbscan = new DbscanAlgorithm<MyCustomFeature>(
+    (feature1, feature2) =>
+    Math.Sqrt(
+            ((feature1.X - feature2.X) * (feature1.X - feature2.X)) +
+            ((feature1.Y - feature2.Y) * (feature1.Y - feature2.Y))
+        )
+    );
     
-    //loads clusters parameter with set of points
-    dbscan.ComputeClusterDbscan(allPoints: featureData, epsilon: .01, minPts: 10, clusters: out clusters);
+    //returns DbscanResult typed object of algorithm's process
+    var result = dbscan.ComputeClusterDbscan(allPoints: featureData, epsilon: .01, minimumPoints: 10);
