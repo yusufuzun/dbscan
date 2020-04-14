@@ -59,7 +59,9 @@ namespace DbscanImplementation
 
                 if (neighborPoints.Length < minimumPoints)
                 {
-                    lookupPoint.ClusterId = (int)ClusterIds.Noise;
+                    lookupPoint.ClusterId = (int)ClusterId.Noise;
+
+                    lookupPoint.PointType = PointType.Noise;
                 }
                 else
                 {
@@ -67,7 +69,9 @@ namespace DbscanImplementation
 
                     lookupPoint.ClusterId = clusterId;
 
-                    neighborPoints = ExpandCluster(allPointsDbscan, neighborPoints, clusterId, epsilon, minimumPoints);
+                    lookupPoint.PointType = PointType.Core;
+
+                    ExpandCluster(allPointsDbscan, neighborPoints, clusterId, epsilon, minimumPoints);
                 }
             }
 
@@ -82,8 +86,7 @@ namespace DbscanImplementation
         /// <param name="clusterId">given clusterId</param>
         /// <param name="epsilon">Desired region ball radius</param>
         /// <param name="minimumPoints">Minimum number of points to be in a region</param>
-        /// <returns>expanded neighbor points</returns>
-        private DbscanPoint<TFeature>[] ExpandCluster(
+        private void ExpandCluster(
             DbscanPoint<TFeature>[] allPoints, DbscanPoint<TFeature>[] neighborPoints,
             int clusterId, double epsilon, int minimumPoints)
         {
@@ -99,17 +102,21 @@ namespace DbscanImplementation
 
                     if (otherNeighborPoints.Length >= minimumPoints)
                     {
+                        neighborPoint.PointType = PointType.Core;
+
                         neighborPoints = neighborPoints.Union(otherNeighborPoints).ToArray();
+                    }
+                    else
+                    {
+                        neighborPoint.PointType = PointType.Border;
                     }
                 }
 
-                if (neighborPoint.ClusterId == (int)ClusterIds.Unclassified)
+                if (neighborPoint.ClusterId == (int)ClusterId.Unclassified)
                 {
                     neighborPoint.ClusterId = clusterId;
                 }
             }
-
-            return neighborPoints;
         }
 
         /// <summary>

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using DbscanImplementation;
 
 namespace DbscanDemo
@@ -10,13 +11,13 @@ namespace DbscanDemo
         {
             MyCustomFeature[] featureData = { };
 
-            var testPoints = new List<MyCustomFeature>();
+            var testPoints = new List<MyCustomFeature>() { };
 
             //points around (1,1) with most 1 distance
             testPoints.Add(new MyCustomFeature(1, 1));
             for (int i = 1; i <= 1000; i++)
             {
-                float v = ((float)i / 1000);
+                var v = (float)i / 1000;
                 testPoints.Add(new MyCustomFeature(1, 1 + v));
                 testPoints.Add(new MyCustomFeature(1, 1 - v));
                 testPoints.Add(new MyCustomFeature(1 - v, 1));
@@ -27,12 +28,15 @@ namespace DbscanDemo
             testPoints.Add(new MyCustomFeature(5, 5));
             for (int i = 1; i <= 1000; i++)
             {
-                float v = ((float)i / 1000);
+                var v = (float)i / 1000;
                 testPoints.Add(new MyCustomFeature(5, 5 + v));
                 testPoints.Add(new MyCustomFeature(5, 5 - v));
                 testPoints.Add(new MyCustomFeature(5 - v, 5));
                 testPoints.Add(new MyCustomFeature(5 + v, 5));
             }
+
+            //noise point
+            testPoints.Add(new MyCustomFeature(10, 10));
 
             featureData = testPoints.ToArray();
 
@@ -46,6 +50,18 @@ namespace DbscanDemo
                 );
 
             var result = dbscan.ComputeClusterDbscan(allPoints: featureData, epsilon: .01, minimumPoints: 10);
+
+            Console.WriteLine($"Unclassified: {result.Unclassified.Length}");
+
+            Console.WriteLine($"Noise: {result.Noise.Length}");
+
+            Console.WriteLine($"# of Clusters: {result.Clusters.Count}");
+
+            Console.WriteLine("Unclassified points in Clusters: " +
+                $"{result.Clusters.SelectMany(x => x.Value).Where(x => x.PointType == PointType.Unclassified).Count()}");
+
+            Console.WriteLine("Not Visited points in Clusters: " +
+                $"{result.Clusters.SelectMany(x => x.Value).Where(x => !x.IsVisited).Count()}");
         }
     }
 }
