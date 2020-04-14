@@ -16,8 +16,8 @@ namespace DbscanImplementation
                 .ToDictionary(x => x.Key, x => x.ToArray());
 
             Clusters = new Dictionary<int, DbscanPoint<TFeature>[]>(allClusters.Where(x => x.Key > 0));
-            Noise = allClusters.ContainsKey((int)ClusterIds.Noise) ? allClusters[(int)ClusterIds.Noise] : new DbscanPoint<TFeature>[0];
-            Unclassified = allClusters.ContainsKey((int)ClusterIds.Unclassified) ? allClusters[(int)ClusterIds.Unclassified] : new DbscanPoint<TFeature>[0];
+            Noise = allClusters.ContainsKey((int)ClusterId.Noise) ? allClusters[(int)ClusterId.Noise] : new DbscanPoint<TFeature>[0];
+            Unclassified = allClusters.ContainsKey((int)ClusterId.Unclassified) ? allClusters[(int)ClusterId.Unclassified] : new DbscanPoint<TFeature>[0];
         }
 
         public Dictionary<int, DbscanPoint<TFeature>[]> Clusters { get; }
