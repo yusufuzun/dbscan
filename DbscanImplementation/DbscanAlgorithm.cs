@@ -20,7 +20,7 @@ namespace DbscanImplementation
         public readonly Func<TFeature, double, Func<DbscanPoint<TFeature>, bool>> RegionQueryPredicate;
 
         /// <summary>
-        /// Takes metric function to compute distances between two TFeature
+        /// Takes metric function to compute distances between two <see cref="TFeature"/>
         /// </summary>
         /// <param name="metricFunc"></param>
         public DbscanAlgorithm(Func<TFeature, TFeature, double> metricFunc)
@@ -48,31 +48,27 @@ namespace DbscanImplementation
             {
                 var lookupPoint = allPointsDbscan[i];
 
-                if (lookupPoint.IsVisited)
+                if (lookupPoint.PointType.HasValue)
                 {
                     continue;
                 }
-
-                lookupPoint.IsVisited = true;
 
                 var neighborPoints = RegionQuery(allPointsDbscan, lookupPoint.Feature, epsilon);
 
                 if (neighborPoints.Length < minimumPoints)
                 {
-                    lookupPoint.ClusterId = (int)ClusterId.Noise;
-
                     lookupPoint.PointType = PointType.Noise;
+
+                    continue;
                 }
-                else
-                {
-                    clusterId++;
 
-                    lookupPoint.ClusterId = clusterId;
+                clusterId++;
 
-                    lookupPoint.PointType = PointType.Core;
+                lookupPoint.ClusterId = clusterId;
 
-                    ExpandCluster(allPointsDbscan, neighborPoints, clusterId, epsilon, minimumPoints);
-                }
+                lookupPoint.PointType = PointType.Core;
+
+                ExpandCluster(allPointsDbscan, neighborPoints, clusterId, epsilon, minimumPoints);
             }
 
             return new DbscanResult<TFeature>(allPointsDbscan);
@@ -86,36 +82,39 @@ namespace DbscanImplementation
         /// <param name="clusterId">given clusterId</param>
         /// <param name="epsilon">Desired region ball radius</param>
         /// <param name="minimumPoints">Minimum number of points to be in a region</param>
-        private void ExpandCluster(
-            DbscanPoint<TFeature>[] allPoints, DbscanPoint<TFeature>[] neighborPoints,
+        private void ExpandCluster(DbscanPoint<TFeature>[] allPoints, DbscanPoint<TFeature>[] neighborPoints,
             int clusterId, double epsilon, int minimumPoints)
         {
             for (int i = 0; i < neighborPoints.Length; i++)
             {
                 var neighborPoint = neighborPoints[i];
 
-                if (!neighborPoint.IsVisited)
-                {
-                    neighborPoint.IsVisited = true;
-
-                    var otherNeighborPoints = RegionQuery(allPoints, neighborPoint.Feature, epsilon);
-
-                    if (otherNeighborPoints.Length >= minimumPoints)
-                    {
-                        neighborPoint.PointType = PointType.Core;
-
-                        neighborPoints = neighborPoints.Union(otherNeighborPoints).ToArray();
-                    }
-                    else
-                    {
-                        neighborPoint.PointType = PointType.Border;
-                    }
-                }
-
-                if (neighborPoint.ClusterId == (int)ClusterId.Unclassified)
+                if (neighborPoint.PointType == PointType.Noise)
                 {
                     neighborPoint.ClusterId = clusterId;
+
+                    neighborPoint.PointType = PointType.Border;
                 }
+
+                if (neighborPoint.PointType.HasValue)
+                {
+                    continue;
+                }
+
+                neighborPoint.ClusterId = clusterId;
+
+                var otherNeighborPoints = RegionQuery(allPoints, neighborPoint.Feature, epsilon);
+
+                if (otherNeighborPoints.Length < minimumPoints)
+                {
+                    neighborPoint.PointType = PointType.Border;
+
+                    continue;
+                }
+
+                neighborPoint.PointType = PointType.Core;
+
+                neighborPoints = neighborPoints.Union(otherNeighborPoints).ToArray();
             }
         }
 

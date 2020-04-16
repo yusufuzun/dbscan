@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
 using DbscanImplementation;
 
 namespace DbscanDemo
@@ -51,17 +50,9 @@ namespace DbscanDemo
 
             var result = dbscan.ComputeClusterDbscan(allPoints: featureData, epsilon: .01, minimumPoints: 10);
 
-            Console.WriteLine($"Unclassified: {result.Unclassified.Length}");
-
             Console.WriteLine($"Noise: {result.Noise.Length}");
 
             Console.WriteLine($"# of Clusters: {result.Clusters.Count}");
-
-            Console.WriteLine("Unclassified points in Clusters: " +
-                $"{result.Clusters.SelectMany(x => x.Value).Where(x => x.PointType == PointType.Unclassified).Count()}");
-
-            Console.WriteLine("Not Visited points in Clusters: " +
-                $"{result.Clusters.SelectMany(x => x.Value).Where(x => !x.IsVisited).Count()}");
         }
     }
 }
