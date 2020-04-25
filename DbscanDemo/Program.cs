@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Text.Json.Serialization;
 using DbscanImplementation;
+using DbscanImplementation.Eventing;
 
 namespace DbscanDemo
 {
@@ -53,6 +55,43 @@ namespace DbscanDemo
             Console.WriteLine($"Noise: {result.Noise.Length}");
 
             Console.WriteLine($"# of Clusters: {result.Clusters.Count}");
+
+
+            //INFO: applied euclidean distance as metric calculation function
+            var dbscanWithEventing = new DbscanAlgorithm<MyCustomFeature>(
+                (feature1, feature2) =>
+                Math.Sqrt(
+                        ((feature1.X - feature2.X) * (feature1.X - feature2.X)) +
+                        ((feature1.Y - feature2.Y) * (feature1.Y - feature2.Y))
+                    ),
+                    new DbscanLogger()
+                );
+
+            var resultWithEventing = dbscanWithEventing.ComputeClusterDbscan(allPoints: featureData, epsilon: .01, minimumPoints: 10);
+
+            Console.WriteLine($"Noise: {resultWithEventing.Noise.Length}");
+
+            Console.WriteLine($"# of Clusters: {resultWithEventing.Clusters.Count}");
+        }
+    }
+
+    public class DbscanLogger : IDbscanEventPublisher
+    {
+        public void Publish(params object[] events)
+        {
+            foreach (var e in events)
+            {
+                var info = e switch
+                {
+                    PointTypeAssigned<MyCustomFeature> pta => $"{pta.Point.ClusterId}: {pta.AssignedType}",
+                    _ => null
+                };
+
+                if (info != null)
+                {
+                    Console.WriteLine(info);
+                }
+            }
         }
     }
 }
