@@ -1,5 +1,6 @@
 using System;
 using System.Linq;
+using DbscanImplementation.Eventing;
 
 namespace DbscanImplementation
 {
@@ -19,16 +20,26 @@ namespace DbscanImplementation
         /// </summary>
         public readonly Func<TFeature, double, Func<DbscanPoint<TFeature>, bool>> RegionQueryPredicate;
 
+        private readonly IDbscanEventPublisher publisher;
+
         /// <summary>
         /// Takes metric function to compute distances between two <see cref="TFeature"/>
         /// </summary>
         /// <param name="metricFunc"></param>
         public DbscanAlgorithm(Func<TFeature, TFeature, double> metricFunc)
         {
-            MetricFunction = metricFunc;
+            MetricFunction = metricFunc ?? throw new ArgumentNullException(nameof(metricFunc));
 
             RegionQueryPredicate =
                 (mainFeature, epsilon) => relatedPoint => MetricFunction(mainFeature, relatedPoint.Feature) <= epsilon;
+
+            this.publisher = new NullDbscanEventPublisher();
+        }
+
+        public DbscanAlgorithm(Func<TFeature, TFeature, double> metricFunc, IDbscanEventPublisher publisher)
+            : this(metricFunc)
+        {
+            this.publisher = publisher ?? throw new ArgumentNullException(nameof(publisher));
         }
 
         /// <summary>
@@ -40,36 +51,74 @@ namespace DbscanImplementation
         /// <returns>Overall result of cluster compute operation</returns>
         public DbscanResult<TFeature> ComputeClusterDbscan(TFeature[] allPoints, double epsilon, int minimumPoints)
         {
+            if (epsilon <= 0)
+            {
+                throw new ArgumentOutOfRangeException(nameof(epsilon), "Must be greater than zero");
+            }
+
+            if (minimumPoints <= 0)
+            {
+                throw new ArgumentOutOfRangeException(nameof(minimumPoints), "Must be greater than zero");
+            }
+
             var allPointsDbscan = allPoints.Select(x => new DbscanPoint<TFeature>(x)).ToArray();
 
             int clusterId = 0;
 
+            var computeId = Guid.NewGuid();
+
+            publisher.Publish(new ComputeStarted(computeId));
+
             for (int i = 0; i < allPointsDbscan.Length; i++)
             {
-                var lookupPoint = allPointsDbscan[i];
+                var currentPoint = allPointsDbscan[i];
 
-                if (lookupPoint.PointType.HasValue)
+                if (currentPoint.PointType.HasValue)
                 {
+                    publisher.Publish(
+                        new PointAlreadyProcessed<TFeature>(currentPoint), 
+                        new PointProcessFinished<TFeature>(currentPoint));
+
                     continue;
                 }
 
-                var neighborPoints = RegionQuery(allPointsDbscan, lookupPoint.Feature, epsilon);
+                publisher.Publish(
+                    new PointProcessStarted<TFeature>(currentPoint),
+                    new RegionQueryStarted<TFeature>(currentPoint, epsilon, minimumPoints));
+
+                var neighborPoints = RegionQuery(allPointsDbscan, currentPoint.Feature, epsilon);
+
+                publisher.Publish(new RegionQueryFinished<TFeature>(currentPoint, neighborPoints));
 
                 if (neighborPoints.Length < minimumPoints)
                 {
-                    lookupPoint.PointType = PointType.Noise;
+                    currentPoint.PointType = PointType.Noise;
+
+                    publisher.Publish(
+                        new PointTypeAssigned<TFeature>(currentPoint, PointType.Noise),
+                        new PointProcessFinished<TFeature>(currentPoint));
 
                     continue;
                 }
 
                 clusterId++;
 
-                lookupPoint.ClusterId = clusterId;
+                currentPoint.ClusterId = clusterId;
 
-                lookupPoint.PointType = PointType.Core;
+                currentPoint.PointType = PointType.Core;
+
+                publisher.Publish(
+                    new PointTypeAssigned<TFeature>(currentPoint, PointType.Core),
+                    new ClusteringStarted<TFeature>(currentPoint, neighborPoints, clusterId, epsilon, minimumPoints));
 
                 ExpandCluster(allPointsDbscan, neighborPoints, clusterId, epsilon, minimumPoints);
+
+                publisher.Publish(
+                    new ClusteringFinished<TFeature>(currentPoint, neighborPoints, clusterId, epsilon, minimumPoints),
+                    new PointProcessFinished<TFeature>(currentPoint));
             }
+
+            publisher.Publish(new ComputeFinished(computeId));
 
             return new DbscanResult<TFeature>(allPointsDbscan);
         }
@@ -87,34 +136,50 @@ namespace DbscanImplementation
         {
             for (int i = 0; i < neighborPoints.Length; i++)
             {
-                var neighborPoint = neighborPoints[i];
+                var currentPoint = neighborPoints[i];
 
-                if (neighborPoint.PointType == PointType.Noise)
+                publisher.Publish(new PointProcessStarted<TFeature>(currentPoint));
+
+                if (currentPoint.PointType == PointType.Noise)
                 {
-                    neighborPoint.ClusterId = clusterId;
+                    currentPoint.ClusterId = clusterId;
 
-                    neighborPoint.PointType = PointType.Border;
+                    currentPoint.PointType = PointType.Border;
+
+                    publisher.Publish(new PointTypeAssigned<TFeature>(currentPoint, PointType.Border));
+
+                    continue;
                 }
 
-                if (neighborPoint.PointType.HasValue)
+                if (currentPoint.PointType.HasValue)
                 {
                     continue;
                 }
 
-                neighborPoint.ClusterId = clusterId;
+                currentPoint.ClusterId = clusterId;
 
-                var otherNeighborPoints = RegionQuery(allPoints, neighborPoint.Feature, epsilon);
+                publisher.Publish(new RegionQueryStarted<TFeature>(currentPoint, epsilon, minimumPoints));
+
+                var otherNeighborPoints = RegionQuery(allPoints, currentPoint.Feature, epsilon);
+
+                publisher.Publish(new RegionQueryFinished<TFeature>(currentPoint, otherNeighborPoints));
 
                 if (otherNeighborPoints.Length < minimumPoints)
                 {
-                    neighborPoint.PointType = PointType.Border;
+                    currentPoint.PointType = PointType.Border;
+
+                    publisher.Publish(new PointTypeAssigned<TFeature>(currentPoint, PointType.Border));
 
                     continue;
                 }
 
-                neighborPoint.PointType = PointType.Core;
+                currentPoint.PointType = PointType.Core;
+
+                publisher.Publish(new PointTypeAssigned<TFeature>(currentPoint, PointType.Core));
 
                 neighborPoints = neighborPoints.Union(otherNeighborPoints).ToArray();
+
+                publisher.Publish(new PointProcessFinished<TFeature>(currentPoint));
             }
         }
 
@@ -125,7 +190,7 @@ namespace DbscanImplementation
         /// <param name="mainFeature">Focused feature to be searched neighbors</param>
         /// <param name="epsilon">Desired region ball radius</param>
         /// <returns>Calculated neighbor points</returns>
-        private DbscanPoint<TFeature>[] RegionQuery(DbscanPoint<TFeature>[] allPoints, TFeature mainFeature, double epsilon)
+        public DbscanPoint<TFeature>[] RegionQuery(DbscanPoint<TFeature>[] allPoints, TFeature mainFeature, double epsilon)
         {
             return allPoints.Where(RegionQueryPredicate(mainFeature, epsilon)).ToArray();
         }
