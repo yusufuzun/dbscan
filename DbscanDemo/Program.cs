@@ -58,6 +58,7 @@ namespace DbscanDemo
 
 
             //INFO: applied euclidean distance as metric calculation function
+            //INFO: second argument of constructor takes an instance implemented with IDbscanEventPublisher interface
             var dbscanWithEventing = new DbscanAlgorithm<MyCustomFeature>(
                 (feature1, feature2) =>
                 Math.Sqrt(
@@ -81,6 +82,7 @@ namespace DbscanDemo
         {
             foreach (var e in events)
             {
+                //INFO: match the events you want to process
                 var info = e switch
                 {
                     PointTypeAssigned<MyCustomFeature> pta => $"{pta.Point.ClusterId}: {pta.AssignedType}",
