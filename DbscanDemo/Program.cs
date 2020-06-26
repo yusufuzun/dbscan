@@ -1,99 +1,104 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Text.Json.Serialization;
+using System.Threading;
+using DbscanDemo.Eventing;
 using DbscanImplementation;
-using DbscanImplementation.Eventing;
 
 namespace DbscanDemo
 {
-    class Program
+    public class Program
     {
-        static void Main(string[] args)
+        public static void Main(string[] args)
         {
-            MyCustomFeature[] featureData = { };
+            var features = new MyFeatureDataSource().GetFeatureData();
 
-            var testPoints = new List<MyCustomFeature>() { };
+            //RunOfflineDbscan(features);
 
-            //points around (1,1) with most 1 distance
-            testPoints.Add(new MyCustomFeature(1, 1));
-            for (int i = 1; i <= 1000; i++)
-            {
-                var v = (float)i / 1000;
-                testPoints.Add(new MyCustomFeature(1, 1 + v));
-                testPoints.Add(new MyCustomFeature(1, 1 - v));
-                testPoints.Add(new MyCustomFeature(1 - v, 1));
-                testPoints.Add(new MyCustomFeature(1 + v, 1));
-            }
+            //RunOfflineDbscanWithEventPublisher(features);
 
-            //points around (5,5) with most 1 distance
-            testPoints.Add(new MyCustomFeature(5, 5));
-            for (int i = 1; i <= 1000; i++)
-            {
-                var v = (float)i / 1000;
-                testPoints.Add(new MyCustomFeature(5, 5 + v));
-                testPoints.Add(new MyCustomFeature(5, 5 - v));
-                testPoints.Add(new MyCustomFeature(5 - v, 5));
-                testPoints.Add(new MyCustomFeature(5 + v, 5));
-            }
+            RunOfflineDbscanWithResultBuilderAsync(features);
+        }
 
-            //noise point
-            testPoints.Add(new MyCustomFeature(10, 10));
+        /// <summary>
+        /// async compute call and publishes all events inside dbscan to an exchange
+        /// By using an async subscriber all events processed and a result created.
+        /// </summary>
+        /// <param name="features"></param>
+        private static void RunOfflineDbscanWithResultBuilderAsync(List<MyFeature> features)
+        {
+            var exchange = new QueueExchange<object>();
 
-            featureData = testPoints.ToArray();
+            var publisher = new QueueExchangePublisher(exchange);
 
-            //INFO: applied euclidean distance as metric calculation function
-            var dbscan = new DbscanAlgorithm<MyCustomFeature>(
-                (feature1, feature2) =>
-                Math.Sqrt(
-                        ((feature1.X - feature2.X) * (feature1.X - feature2.X)) +
-                        ((feature1.Y - feature2.Y) * (feature1.Y - feature2.Y))
-                    )
+            var dbscanAsync = new DbscanAlgorithm<MyFeature>(
+                    EuclidienDistance,
+                    publisher
                 );
 
-            var result = dbscan.ComputeClusterDbscan(allPoints: featureData, epsilon: .01, minimumPoints: 10);
+            var subscriber = new QueueExchangeSubscriber<object, MyFeature>(exchange);
 
-            Console.WriteLine($"Noise: {result.Noise.Length}");
+            var subscriptionTask = subscriber.Subscribe();
 
-            Console.WriteLine($"# of Clusters: {result.Clusters.Count}");
+            var computeDbscanTask = dbscanAsync.ComputeClusterDbscanAsync(allPoints: features.ToArray(),
+                epsilon: .01, minimumPoints: 10, CancellationToken.None);
 
+            Console.WriteLine("Async dbscan operation continues...");
 
-            //INFO: applied euclidean distance as metric calculation function
+            computeDbscanTask.GetAwaiter().GetResult();
+
+            var resultAsync = subscriptionTask.GetAwaiter().GetResult();
+        }
+
+        /// <summary>
+        /// uses console logger to process events and writes to console
+        /// </summary>
+        /// <param name="features"></param>
+        private static void RunOfflineDbscanWithEventPublisher(List<MyFeature> features)
+        {
             //INFO: second argument of constructor takes an instance implemented with IDbscanEventPublisher interface
-            var dbscanWithEventing = new DbscanAlgorithm<MyCustomFeature>(
-                (feature1, feature2) =>
-                Math.Sqrt(
-                        ((feature1.X - feature2.X) * (feature1.X - feature2.X)) +
-                        ((feature1.Y - feature2.Y) * (feature1.Y - feature2.Y))
-                    ),
-                    new DbscanLogger()
+            var dbscanWithEventing = new DbscanAlgorithm<MyFeature>(
+                    EuclidienDistance,
+                    new MyFeatureConsoleLogger()
                 );
 
-            var resultWithEventing = dbscanWithEventing.ComputeClusterDbscan(allPoints: featureData, epsilon: .01, minimumPoints: 10);
+            var resultWithEventing = dbscanWithEventing.ComputeClusterDbscan(allPoints: features.ToArray(),
+                epsilon: .01, minimumPoints: 10);
 
-            Console.WriteLine($"Noise: {resultWithEventing.Noise.Length}");
+            Console.WriteLine($"Noise: {resultWithEventing.Noise.Count}");
 
             Console.WriteLine($"# of Clusters: {resultWithEventing.Clusters.Count}");
         }
-    }
 
-    public class DbscanLogger : IDbscanEventPublisher
-    {
-        public void Publish(params object[] events)
+        /// <summary>
+        /// Most basic usage of Dbscan implementation, with no eventing and async mechanism
+        /// </summary>
+        /// <param name="features">Features provided</param>
+        private static void RunOfflineDbscan(List<MyFeature> features)
         {
-            foreach (var e in events)
-            {
-                //INFO: match the events you want to process
-                var info = e switch
-                {
-                    PointTypeAssigned<MyCustomFeature> pta => $"{pta.Point.ClusterId}: {pta.AssignedType}",
-                    _ => null
-                };
+            var simpleDbscan = new DbscanAlgorithm<MyFeature>(EuclidienDistance);
 
-                if (info != null)
-                {
-                    Console.WriteLine(info);
-                }
-            }
+            var result = simpleDbscan.ComputeClusterDbscan(allPoints: features.ToArray(),
+                epsilon: .01, minimumPoints: 10);
+
+            Console.WriteLine($"Noise: {result.Noise.Count}");
+
+            Console.WriteLine($"# of Clusters: {result.Clusters.Count}");
         }
+
+        /// <summary>
+        /// Euclidien distance function
+        /// </summary>
+        /// <param name="feature1"></param>
+        /// <param name="feature2"></param>
+        /// <returns></returns>
+        private static double EuclidienDistance(MyFeature feature1, MyFeature feature2)
+        {
+            return Math.Sqrt(
+                    ((feature1.X - feature2.X) * (feature1.X - feature2.X)) +
+                    ((feature1.Y - feature2.Y) * (feature1.Y - feature2.Y))
+                );
+        }
+
     }
+
 }

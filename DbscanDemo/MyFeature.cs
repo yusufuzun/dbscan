@@ -1,11 +1,11 @@
 namespace DbscanDemo
 {
-    public class MyCustomFeature
+    public class MyFeature
     {
         public double X;
         public double Y;
 
-        public MyCustomFeature(double x, double y)
+        public MyFeature(double x, double y)
         {
             X = x;
             Y = y;

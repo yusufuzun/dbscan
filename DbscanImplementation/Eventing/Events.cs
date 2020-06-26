@@ -23,21 +23,21 @@ namespace DbscanImplementation.Eventing
         }
     }
 
-    public class PointProcessFinished<TFeature>
+    public class PointProcessFinished<TF>
     {
-        public DbscanPoint<TFeature> Point { get; }
+        public DbscanPoint<TF> Point { get; }
 
-        public PointProcessFinished(DbscanPoint<TFeature> point)
+        public PointProcessFinished(DbscanPoint<TF> point)
         {
             Point = point;
         }
     }
 
-    public class ClusteringFinished<TFeature>
+    public class ClusteringFinished<TF>
     {
-        public DbscanPoint<TFeature> Point { get; }
+        public DbscanPoint<TF> Point { get; }
 
-        public DbscanPoint<TFeature>[] NeighborPoints { get; }
+        public DbscanPoint<TF>[] NeighborPoints { get; }
 
         public int ClusterId { get; }
 
@@ -45,7 +45,7 @@ namespace DbscanImplementation.Eventing
 
         public int MinimumPoints { get; }
 
-        public ClusteringFinished(DbscanPoint<TFeature> point, DbscanPoint<TFeature>[] neighborPoints,
+        public ClusteringFinished(DbscanPoint<TF> point, DbscanPoint<TF>[] neighborPoints,
             int clusterId, double epsilon, int minimumPoints)
         {
             Point = point;
@@ -56,12 +56,12 @@ namespace DbscanImplementation.Eventing
         }
     }
 
-    public class ClusteringStarted<TFeature>
+    public class ClusteringStarted<TF>
     {
 
-        public DbscanPoint<TFeature> Point { get; }
+        public DbscanPoint<TF> Point { get; }
 
-        public DbscanPoint<TFeature>[] NeighborPoints { get; }
+        public DbscanPoint<TF>[] NeighborPoints { get; }
 
         public int ClusterId { get; }
 
@@ -69,7 +69,7 @@ namespace DbscanImplementation.Eventing
 
         public int MinimumPoints { get; }
 
-        public ClusteringStarted(DbscanPoint<TFeature> point, DbscanPoint<TFeature>[] neighborPoints,
+        public ClusteringStarted(DbscanPoint<TF> point, DbscanPoint<TF>[] neighborPoints,
             int clusterId, double epsilon, int minimumPoints)
         {
             Point = point;
@@ -80,41 +80,41 @@ namespace DbscanImplementation.Eventing
         }
     }
 
-    public class PointTypeAssigned<TFeature>
+    public class PointTypeAssigned<TF>
     {
-        public DbscanPoint<TFeature> Point { get; }
+        public DbscanPoint<TF> Point { get; }
 
         public PointType AssignedType { get; }
 
-        public PointTypeAssigned(DbscanPoint<TFeature> point, PointType assignedType)
+        public PointTypeAssigned(DbscanPoint<TF> point, PointType assignedType)
         {
             Point = point;
             AssignedType = assignedType;
         }
     }
 
-    public class RegionQueryFinished<TFeature>
+    public class RegionQueryFinished<TF>
     {
-        public DbscanPoint<TFeature> Point { get; }
+        public DbscanPoint<TF> Point { get; }
 
-        public DbscanPoint<TFeature>[] NeighborPoints { get; }
+        public DbscanPoint<TF>[] NeighborPoints { get; }
 
-        public RegionQueryFinished(DbscanPoint<TFeature> point, DbscanPoint<TFeature>[] neighborPoints)
+        public RegionQueryFinished(DbscanPoint<TF> point, DbscanPoint<TF>[] neighborPoints)
         {
             Point = point;
             NeighborPoints = neighborPoints;
         }
     }
 
-    public class RegionQueryStarted<TFeature>
+    public class RegionQueryStarted<TF>
     {
-        public DbscanPoint<TFeature> Point { get; private set; }
+        public DbscanPoint<TF> Point { get; private set; }
 
         public double Epsilon { get; }
 
         public int MinimumPoints { get; }
 
-        public RegionQueryStarted(DbscanPoint<TFeature> point, double epsilon, int minimumPoints)
+        public RegionQueryStarted(DbscanPoint<TF> point, double epsilon, int minimumPoints)
         {
             Point = point;
             Epsilon = epsilon;
@@ -122,21 +122,21 @@ namespace DbscanImplementation.Eventing
         }
     }
 
-    public class PointAlreadyProcessed<TFeature>
+    public class PointAlreadyProcessed<TF>
     {
-        public DbscanPoint<TFeature> Point { get; private set; }
+        public DbscanPoint<TF> Point { get; private set; }
 
-        public PointAlreadyProcessed(DbscanPoint<TFeature> point)
+        public PointAlreadyProcessed(DbscanPoint<TF> point)
         {
             Point = point;
         }
     }
 
-    public class PointProcessStarted<TFeature>
+    public class PointProcessStarted<TF>
     {
-        public DbscanPoint<TFeature> Point { get; private set; }
+        public DbscanPoint<TF> Point { get; private set; }
 
-        public PointProcessStarted(DbscanPoint<TFeature> point)
+        public PointProcessStarted(DbscanPoint<TF> point)
         {
             Point = point;
         }
