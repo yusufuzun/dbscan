@@ -5,6 +5,8 @@ It is a small project that implements DBSCAN Clustering algorithm in C# and dotn
 
 For using this you only need to define your own dataset class and create DbscanAlgorithm class to perform clustering. After that only call the ComputeClusterDbscan with desired clustering parameter.
 
+You can check previous git tags for more primitive DBSCAN implementation.
+
 Example: 
 --------
 Your dataset items (preference, feature, vector, row, etc.):
@@ -22,36 +24,37 @@ public class MyCustomFeature
 }
 ```
 
-Then for clustering
+Your Distance Function
 ```cs
-MyCustomFeature[] featureData = _clusterRepository.GetPointsToBeClustered();
+private static double EuclidienDistance(MyFeature feature1, MyFeature feature2)
+{
+    return Math.Sqrt(
+            ((feature1.X - feature2.X) * (feature1.X - feature2.X)) +
+            ((feature1.Y - feature2.Y) * (feature1.Y - feature2.Y))
+        );
+}
+```
+
+Then for clustering with simple form
+```cs
+var features = new MyFeatureDataSource().GetFeatureData();
 
 //INFO: applied euclidean distance as metric calculation function
-var dbscan = new DbscanAlgorithm<MyCustomFeature>(
-(feature1, feature2) =>
-Math.Sqrt(
-        ((feature1.X - feature2.X) * (feature1.X - feature2.X)) +
-        ((feature1.Y - feature2.Y) * (feature1.Y - feature2.Y))
-    )
-);
+var simpleDbscan = new DbscanAlgorithm<MyFeature>(EuclidienDistance);
 
 //returns DbscanResult typed object of algorithm's process
-var result = dbscan.ComputeClusterDbscan(allPoints: featureData, epsilon: .01, minimumPoints: 10);
+var result = dbscan.ComputeClusterDbscan(allPoints: features.ToArray(), epsilon: .01, minimumPoints: 10);
 ```
 
 If you want to get events happening inside algorithm then you can create algorithm with other constructor which takes a publisher type as instance
 ```cs    
 //INFO: second argument of constructor takes an instance implemented with IDbscanEventPublisher interface
-var dbscanWithEventing = new DbscanAlgorithm<MyCustomFeature>(
-    (feature1, feature2) =>
-    Math.Sqrt(
-            ((feature1.X - feature2.X) * (feature1.X - feature2.X)) +
-            ((feature1.Y - feature2.Y) * (feature1.Y - feature2.Y))
-        ),
-        new DbscanLogger()
+var dbscanWithEventing = new DbscanAlgorithm<MyFeature>(
+        EuclidienDistance,
+        new MyFeatureConsoleLogger()
     );
 
-var resultWithEventing = dbscanWithEventing.ComputeClusterDbscan(allPoints: featureData, epsilon: .01, minimumPoints: 10);
+var resultWithEventing = dbscanWithEventing.ComputeClusterDbscan(allPoints: features.ToArray(), epsilon: .01, minimumPoints: 10);
 ```
 
 An example of the implementation for IDbscanEventPublisher interface:
@@ -77,3 +80,20 @@ public class DbscanLogger : IDbscanEventPublisher
     }
 }
 ```
+
+Another example of IDbscanEventPublisher could be a Pub/Sub application, like this:
+```cs
+var exchange = new QueueExchange<object>();
+
+var publisher = new QueueExchangePublisher(exchange);
+
+var dbscanAsync = new DbscanAlgorithm<MyFeature>(
+    EuclidienDistance,
+    publisher
+);
+
+var subscriber = new QueueExchangeSubscriber<object, MyFeature>(exchange);
+
+var subscriptionTask = subscriber.Subscribe();
+```
+This can be anything that succeeds the Pub/Sub design. You can asyncronously build your own analytics result by subscription.

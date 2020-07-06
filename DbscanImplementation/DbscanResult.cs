@@ -1,5 +1,4 @@
 using System.Collections.Generic;
-using System.Linq;
 
 namespace DbscanImplementation
 {
@@ -9,20 +8,14 @@ namespace DbscanImplementation
     /// <typeparam name="TFeature">Feature data contribute into algorithm</typeparam>
     public class DbscanResult<TFeature>
     {
-        private const int NoiseKey = 0;
-
-        public DbscanResult(DbscanPoint<TFeature>[] allPoints)
+        public DbscanResult()
         {
-            var allClusters = allPoints
-                .GroupBy(x => x.ClusterId)
-                .ToDictionary(x => x.Key ?? NoiseKey, x => x.ToArray());
-
-            Clusters = new Dictionary<int, DbscanPoint<TFeature>[]>(allClusters.Where(x => x.Key > NoiseKey));
-            Noise = allClusters.ContainsKey(NoiseKey) ? allClusters[NoiseKey] : new DbscanPoint<TFeature>[NoiseKey];
+            Noise = new List<DbscanPoint<TFeature>>();
+            Clusters = new Dictionary<int, List<DbscanPoint<TFeature>>>();
         }
 
-        public Dictionary<int, DbscanPoint<TFeature>[]> Clusters { get; }
+        public Dictionary<int, List<DbscanPoint<TFeature>>> Clusters { get; private set; }
 
-        public DbscanPoint<TFeature>[] Noise { get; set; }
+        public List<DbscanPoint<TFeature>> Noise { get; private set; }
     }
 }
