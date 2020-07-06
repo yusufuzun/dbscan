@@ -8,13 +8,13 @@ namespace DbscanDemo
 {
     public class Program
     {
-        public static void Main(string[] args)
+        public static void Main()
         {
             var features = new MyFeatureDataSource().GetFeatureData();
 
-            //RunOfflineDbscan(features);
+            RunOfflineDbscan(features);
 
-            //RunOfflineDbscanWithEventPublisher(features);
+            RunOfflineDbscanWithEventPublisher(features);
 
             RunOfflineDbscanWithResultBuilderAsync(features);
         }
@@ -44,9 +44,12 @@ namespace DbscanDemo
 
             Console.WriteLine("Async dbscan operation continues...");
 
-            computeDbscanTask.GetAwaiter().GetResult();
+            var computeResult = computeDbscanTask.GetAwaiter().GetResult();
 
-            var resultAsync = subscriptionTask.GetAwaiter().GetResult();
+            var eventResult = subscriptionTask.GetAwaiter().GetResult();
+
+            Console.WriteLine($"Clusters from Computed: {computeResult.Clusters.Count}");
+            Console.WriteLine($"Clusters from Events: {computeResult.Clusters.Count}");
         }
 
         /// <summary>
